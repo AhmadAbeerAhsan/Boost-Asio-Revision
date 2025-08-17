@@ -1,14 +1,3 @@
-#include <boost/predef.h> // Tools to identify the OS.
-
-#ifdef BOOST_OS_WINDOWS
-#define _WIN32_WINNT 0x0501
-
-#if _WIN32_WINNT <= 0x0502 // Windows Server 2003 or earlier.
-#define BOOST_ASIO_DISABLE_IOCP
-#define BOOST_ASIO_ENABLE_CANCELIO
-#endif
-#endif
-
 #include <boost/asio.hpp>
 #include <iostream>
 #include <thread>
