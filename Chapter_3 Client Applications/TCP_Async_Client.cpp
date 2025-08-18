@@ -73,16 +73,10 @@ struct Session
 class AsyncTCPClient
 {
 public:
-  AsyncTCPClient()
+  AsyncTCPClient(): m_work(asio::make_work_guard(m_ioc))
   {
     m_thread.reset(new std::thread([this]() { 
-      while (m_serverActive)
-      {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::cout << "Restarting context" << std::endl;
         m_ioc.run();
-        std::cout << "Context finished" << std::endl;
-      }
      }));
   }
 
@@ -147,12 +141,7 @@ public:
 
   void close()
   {
-    m_serverActive = false;
-    // Destroy work object. This allows the I/O thread to
-    // exits the event loop when there are no more pending
-    // asynchronous operations.
-    m_ioc.stop();
-
+    m_work.reset();
 
     // Wait for the I/O thread to exit.
     m_thread->join();
@@ -264,14 +253,14 @@ private:
   std::map<int, std::shared_ptr<Session>> m_active_sessions;
   std::mutex m_active_sessions_guard;
   std::unique_ptr<std::thread> m_thread;
-  bool m_serverActive {true};
+  asio::executor_work_guard<asio::io_context::executor_type> m_work;
 };
 
 void handler(unsigned int request_id,
              const std::string &response,
              const system::error_code &ec)
 {
-  if (ec)
+  if (!ec)
   {
     std::cout << "Request #" << request_id
               << " has completed. Response: "
@@ -306,19 +295,19 @@ int main()
     client.emulateLongComputationOp(10, "127.0.0.1", 3333,
                                     handler, 1);
     // Then does nothing for 5 seconds.
-    //std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     // Then initiates another request with id 2.
-    client.emulateLongComputationOp(11, "127.0.0.1", 3334,
+    client.emulateLongComputationOp(11, "127.0.0.1", 3333,
                                     handler, 2);
     // Then decides to cancel the request with id 1.
-    client.cancelRequest(1);
+    //client.cancelRequest(1);
     // Does nothing for another 6 seconds.
-    //std::this_thread::sleep_for(std::chrono::seconds(6));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     // Initiates one more request assigning ID3 to it.
-    client.emulateLongComputationOp(12, "127.0.0.1", 3335,
+    client.emulateLongComputationOp(12, "127.0.0.1", 3333,
                                     handler, 3);
     // Does nothing for another 15 seconds.
-    std::this_thread::sleep_for(std::chrono::seconds(15));
+    std::this_thread::sleep_for(std::chrono::seconds(6));
     // Decides to exit the application.
     client.close();
   }
